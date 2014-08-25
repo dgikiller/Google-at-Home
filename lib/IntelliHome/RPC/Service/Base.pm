@@ -1,4 +1,5 @@
 package IntelliHome::RPC::Service::Base;
+
 =head1 NAME
 
 IntelliHome::RPC::Service::Base - Base class for RPC Services
@@ -32,10 +33,26 @@ has 'IntelliHome';
 sub new {
     my $self = shift;
     $self = $self->SUPER::new(@_);
-    $self->{'_rpcs'}
-        ->{ lc( ( split( "::", ( $self =~ /(.*)\=/ )[0] ) )[-1] ) }
-        ->{'with_mojo_tx'} = 1;
+
+    #   $self->{'_rpcs'}
+    #     ->{ lc( ( split( "::", ( $self =~ /(.*)\=/ )[0] ) )[-1] ) }
+    #    ->{'with_mojo_tx'} = 1;
+    $self->{'_rpcs'}->{$_}->{'with_mojo_tx'} = 1
+        for ( keys %{ $self->{'_rpcs'} } );
     return $self;
+}
+
+sub register_rpc {
+    my $symbol = { eval( '%' . caller . "::" ) };
+    local @_;
+    foreach my $entry ( keys %{$symbol} ) {
+        no strict 'refs';
+        if ( defined &{ caller . "::$entry" } ) {
+            push( @_, $entry ) if $entry =~ /^rpc\_/; # this allows method suffixed by rpc_ to be automatically exported as rpc public services
+        }
+    }
+    use strict 'refs';
+    caller->register_rpc_method_names(@_);
 }
 
 1;
